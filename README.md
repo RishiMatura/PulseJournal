@@ -16,6 +16,7 @@ JotVault is a personal journaling application designed to provide a seamless and
 - **Current Weather and Quotes API** (Retrieve real-time weather data and daily motivational quotes)
 - **Role-Based Authentication** (Admin/User Permissions)
 - **Auto Password Encoding** Automatically encodes user passwords for secure storage.
+- **SMTP Integration:** Enables email functionality for notifications and user communication.
 
 ## Technologies Used
 
@@ -39,6 +40,7 @@ To run this project locally, you need the following:
 - Postman for API testing
 - ElevenLabs API key
 - API Ninja Key
+- MailSlurp or Ethereal Mail API Keys
 - Weather Stack Key
 
 ## Setup and Installation
