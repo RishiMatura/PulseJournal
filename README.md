@@ -2,7 +2,7 @@
 
 ## Overview
 
-JotVault is a personal journaling application designed to provide a seamless and efficient experience for managing journal entries. Built with Spring Boot for the backend and MongoDB for data storage, the application supports creating, updating, and deleting journal entries, as well as converting text entries into audio files using the ElevenLabs API for a unique voice journal experience.
+Pulse Journal is a personal journaling application designed to provide a seamless and efficient experience for managing journal entries. Built with Spring Boot for the backend and MongoDB for data storage, the application supports creating, updating, and deleting journal entries, as well as converting text entries into audio files using the ElevenLabs API for a unique voice journal experience.
 
 ## Features
 
