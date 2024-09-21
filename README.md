@@ -15,6 +15,7 @@ JotVault is a personal journaling application designed to provide a seamless and
 - **Text-to-Speech** Conversion for Journal Entries.
 - **Current Weather and Quotes API** (Retrieve real-time weather data and daily motivational quotes)
 - **Role-Based Authentication** (Admin/User Permissions)
+- **Auto Password Encoding** Automatically encodes user passwords for secure storage.
 
 ## Technologies Used
 
@@ -26,6 +27,7 @@ JotVault is a personal journaling application designed to provide a seamless and
 - **Maven:** Build and dependency management.
 - **Git:** Version control.
 - **IntelliJ IDEA:** Development environment.
+- **Postman:** API testing and documentation.
 
 ## Prerequisites
 
@@ -34,6 +36,7 @@ To run this project locally, you need the following:
 - Maven installed
 - MongoDB installed or access to a MongoDB cloud instance
 - IntelliJ IDEA (Optional but recommended for development)
+- Postman for API testing
 - ElevenLabs API key
 - API Ninja Key
 - Weather Stack Key
@@ -63,7 +66,7 @@ To run this project locally, you need the following:
     ```sh
     mvn spring-boot:run
     
-5. **Access the Application:** Once the application is running, you can interact with the REST API at:
+5. **Access the Application:** Once the application is running, you can interact with the REST API through Postman:
     - http://localhost:8080/user
     - http://localhost:8080/journal
 
@@ -85,14 +88,16 @@ To run this project locally, you need the following:
 
 ## Create a Journal Entry
 POST localhost:8080/journal/post
-
 Content-Type: application/json
 - Requires Authentication :  UserName and Password
+
+![image](https://github.com/user-attachments/assets/e1f2743c-31ab-4a86-9946-1aef0a2443f4)
+- Request Snipped: 
   ```sh
-  {
-    "title": "A Day in the Life",
-    "content": "Today was a productive day. I worked on the Plse Journal project."
-  }
+     {
+       "title": "A Day in the Life",
+       "content": "Today was a productive day. I worked on the Plse Journal project."
+     }
 ## Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request with your changes.
