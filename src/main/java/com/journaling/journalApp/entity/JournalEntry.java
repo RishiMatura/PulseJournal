@@ -8,13 +8,18 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 
 @Document(collection = "journal_entries")
 @Data
 @NoArgsConstructor
 @Component
 public class JournalEntry {
+
     @Id
+    @JsonSerialize(using = ToStringSerializer.class)
     private ObjectId id;
     @NonNull
     private String title;
@@ -22,6 +27,7 @@ public class JournalEntry {
     private LocalDateTime date;
 
     private String audioUrl;
+    private String emotion; // 🆕 New field for emotion
 
     //Add userId or userName to associate journal entries with a specific user
     @NonNull

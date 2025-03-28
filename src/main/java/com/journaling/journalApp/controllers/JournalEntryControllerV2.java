@@ -4,10 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.journaling.journalApp.entity.JournalEntry;
 import com.journaling.journalApp.entity.User;
+import com.journaling.journalApp.enums.Sentiment;
 import com.journaling.journalApp.serviceImpl.AudioServiceImpl;
-import com.journaling.journalApp.services.AudioService;
-import com.journaling.journalApp.services.JournalEntryService;
-import com.journaling.journalApp.services.UserService;
+import com.journaling.journalApp.services.*;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -26,6 +25,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.web.bind.annotation.CrossOrigin;
+@CrossOrigin(origins = "http://localhost:3000")  // Allow requests from React frontend
 @RestController
 @RequestMapping("/journal")             // maps this whole class to this endpoint
 //    All the controllers that are used in the project are stored in this directory
@@ -35,7 +36,18 @@ public class JournalEntryControllerV2 {
     @Autowired          private UserService userService;
     @Autowired          private RestTemplate restTemplate;
     @Autowired          private AudioService audioService;
+    @Autowired          private EmotionService emotionService; // New Service for Emotion Analysis
+    @Autowired          private SentimentAnalysisService sentimentAnalysisService;
 
+
+    @GetMapping("/public/auth-check")
+    public ResponseEntity<String> checkAuthentication() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            return ResponseEntity.ok("Authenticated as: " + authentication.getName());
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+    }
 
     //    1)    Fetch all the entries
     @GetMapping("/getAll")     // localhost:8080/journal/get-ALl
@@ -53,31 +65,44 @@ public class JournalEntryControllerV2 {
 
 //    2)    Create an Entry
 @PostMapping("/post")
-public ResponseEntity<JournalEntry> createEntry(@RequestBody JournalEntry myEntry) {
+public ResponseEntity<?> createEntry(@RequestBody JournalEntry myEntry) {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     String userName = authentication.getName();
 
+    // Basic validation to avoid null or blank title/content
+    if (myEntry.getTitle() == null || myEntry.getTitle().trim().isEmpty() ||
+            myEntry.getContent() == null || myEntry.getContent().trim().isEmpty()) {
+        return new ResponseEntity<>("Title and Content cannot be empty.", HttpStatus.BAD_REQUEST);
+    }
+
     try {
+        // Set owner
         myEntry.setOwner(userName);
 
+        // Emotion analysis
+        String detectedEmotion = emotionService.analyzeEmotion(myEntry.getTitle() + " " + myEntry.getContent());
+        myEntry.setEmotion(detectedEmotion);
 
-        // Convert the title + content to audio using AudioService
+//        // Audio generation
+//        String fileName = audioService.generateFileName(myEntry);
+//        String audioUrl = audioService.convertTextToSpeech(myEntry.getTitle() + " " + myEntry.getContent(), fileName);
+////        myEntry.setAudioUrl(audioUrl);
+//        myEntry.setAudioUrl(audioUrl);
 
-        String fileName = audioService.generateFileName(myEntry); // Assuming myEntry is your JournalEntry object
-        String audioUrl = audioService.convertTextToSpeech(myEntry.getTitle() + " " + myEntry.getContent(), fileName);
+        // Sentiment analysis
+        Sentiment sentiment = sentimentAnalysisService.getSentiment(myEntry.getTitle() + " " + myEntry.getContent());
+        myEntry.setSentiment(sentiment);
 
-
-//        String audioUrl = audioService.convertTextToSpeech(myEntry.getTitle() + " " + myEntry.getContent());
-
-        // Set the generated audio URL to the journal entry
-        myEntry.setAudioUrl(audioUrl);
-
+        // Save entry
         journalEntryService.saveEntry(myEntry, userName);
+
         return new ResponseEntity<>(myEntry, HttpStatus.CREATED);
     } catch (Exception e) {
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        e.printStackTrace(); // Log the exception for debugging
+        return new ResponseEntity<>("Something went wrong while creating entry.", HttpStatus.BAD_REQUEST);
     }
 }
+
 
 //   3)     Get Entry By ID
     @GetMapping("/id/{myID}")       // localhost:8080/journal/id/{myID}
@@ -113,10 +138,10 @@ public ResponseEntity<?> deleteEntryByID(@PathVariable ObjectId myID) {
         // Check if the user is the owner of the entry
         if (entry.getOwner().equals(userName)) {
             // Delete the associated audio file if it exists
-            String audioUrl = entry.getAudioUrl();
-            if (audioUrl != null && !audioUrl.isEmpty()) {
-                audioService.deleteAudioFile(audioUrl);  // Method to delete audio file
-            }
+//            String audioUrl = entry.getAudioUrl();
+//            if (audioUrl != null && !audioUrl.isEmpty()) {
+//                audioService.deleteAudioFile(audioUrl);  // Method to delete audio file
+//            }
             // Delete the journal entry from the database
             journalEntryService.deleteById(myID, userName);
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -151,7 +176,7 @@ public ResponseEntity<?> deleteEntryByID(@PathVariable ObjectId myID) {
                     updated = true;
                 }
                 if (updated) {
-                    audioService.replaceAudioFile(oldEntry, oldEntry.getTitle() + " " + oldEntry.getContent());
+//                    audioService.replaceAudioFile(oldEntry, oldEntry.getTitle() + " " + oldEntry.getContent());
                     journalEntryService.saveEntry(oldEntry);
                 }
                 return new ResponseEntity<>(oldEntry, HttpStatus.OK);
@@ -161,6 +186,24 @@ public ResponseEntity<?> deleteEntryByID(@PathVariable ObjectId myID) {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
+
+    @RestController
+    @RequestMapping("/auth")  // Separate endpoint for authentication-related actions
+    public class AuthController {
+
+        // Logout functionality
+        @PostMapping("/logout")
+        public ResponseEntity<String> logout() {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication != null) {
+                // Invalidate the authentication
+                SecurityContextHolder.clearContext();
+                return ResponseEntity.ok("Logged out successfully");
+            }
+            return ResponseEntity.status(400).body("No user logged in");
+        }
+    }
 
 
 }

@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+virtual
+.virtual
+
 ### Ignore application.properties file ###
 src/main/resources/
 src/test/
