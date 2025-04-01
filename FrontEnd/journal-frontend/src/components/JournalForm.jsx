@@ -1,8 +1,66 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const JournalForm = ({ onEntryCreated }) => {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
+    const [isListening, setIsListening] = useState(false);
+    const [error, setError] = useState(null);
+
+    const recognitionRef = useRef(null); // UseRef to store recognition instance
+
+    useEffect(() => {
+        if (!("webkitSpeechRecognition" in window)) {
+            alert("Your browser doesn't support speech recognition.");
+            return;
+        }
+
+        const recognition = new window.webkitSpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onstart = () => {
+            console.log("Voice input started");
+            setIsListening(true);
+        };
+
+        recognition.onend = () => {
+            console.log("Voice input stopped");
+            setIsListening(false);
+        };
+
+        recognition.onresult = (event) => {
+            let transcript = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+            console.log("Voice input detected:", transcript);
+
+            // Append the recognized speech to existing content
+            setContent((prevContent) => prevContent + " " + transcript);
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Recognition Error:", event.error);
+            setError(`Speech recognition error: ${event.error}`);
+        };
+
+        recognitionRef.current = recognition; // Store instance in ref
+    }, []);
+
+    const startListening = () => {
+        if (recognitionRef.current && !isListening) {
+            recognitionRef.current.start();
+            console.log("Started listening...");
+        }
+    };
+
+    const stopListening = () => {
+        if (recognitionRef.current && isListening) {
+            recognitionRef.current.stop();
+            console.log("Stopped listening.");
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -32,7 +90,7 @@ const JournalForm = ({ onEntryCreated }) => {
 
             if (response.ok) {
                 const newEntry = await response.json();
-                onEntryCreated(newEntry); // Notify parent component
+                onEntryCreated(newEntry);
                 setTitle("");
                 setContent("");
             } else {
@@ -66,7 +124,38 @@ const JournalForm = ({ onEntryCreated }) => {
                     required
                 />
             </div>
-            <button type="submit" className="btn btn-primary">Add Entry</button>
+
+            <button
+                type="button"
+                className="btn btn-info me-2"
+                onClick={startListening}
+                disabled={isListening}
+            >
+                {isListening ? "Listening..." : "Start Voice Input"}
+            </button>
+            <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={stopListening}
+                disabled={!isListening}
+            >
+                Stop Listening
+            </button>
+
+            {error && <div className="alert alert-danger mt-3">{error}</div>}
+
+            <button 
+    type="submit" 
+    className="btn btn-primary mt-3" 
+    style={{
+        marginLeft: "16px",
+        marginTop: "5px",
+        marginBottom: "15px"
+    }}
+>
+    Add Entry
+</button>
+
         </form>
     );
 };
