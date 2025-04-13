@@ -8,7 +8,6 @@ const JournalForm = ({ onEntryCreated }) => {
     
     const recognitionRef = useRef(null);
     const lastTranscriptRef = useRef(""); // Store last transcript to avoid repetition
-    const manuallyStoppedRef = useRef(false); // Track manual stop
 
     useEffect(() => {
         if (!("webkitSpeechRecognition" in window)) {
@@ -17,34 +16,25 @@ const JournalForm = ({ onEntryCreated }) => {
         }
 
         const recognition = new window.webkitSpeechRecognition();
-        recognition.continuous = true; // Allow continuous listening
-        recognition.interimResults = true; // Capture partial results
+        recognition.continuous = false; // Stop after one phrase
+        recognition.interimResults = false; // Prevent partial results
         recognition.lang = "en-US";
 
         recognition.onstart = () => {
             console.log("Voice input started");
             setIsListening(true);
-            manuallyStoppedRef.current = false; // Reset manual stop flag
+        };
+
+        recognition.onend = () => {
+            console.log("Voice input stopped");
+            setIsListening(false);
         };
 
         recognition.onresult = (event) => {
-            let finalTranscript = "";
-            let interimTranscript = "";
-
-            // Loop through all results (may contain interim results)
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const result = event.results[i];
-                if (result.isFinal) {
-                    finalTranscript += result[0].transcript.trim(); // Add final transcript
-                } else {
-                    interimTranscript += result[0].transcript.trim(); // Add interim results
-                }
-            }
-
-            // If the final transcript changes, update content
-            if (finalTranscript && finalTranscript !== lastTranscriptRef.current) {
-                lastTranscriptRef.current = finalTranscript;
-                setContent((prevContent) => prevContent + " " + finalTranscript);
+            const transcript = event.results[0][0].transcript.trim();
+            if (transcript !== lastTranscriptRef.current) {
+                lastTranscriptRef.current = transcript;
+                setContent((prevContent) => prevContent + " " + transcript);
             }
         };
 
@@ -53,25 +43,11 @@ const JournalForm = ({ onEntryCreated }) => {
             setError(`Speech recognition error: ${event.error}`);
         };
 
-        recognition.onend = () => {
-            console.log("Voice input stopped");
-            setIsListening(false);
-
-            // 🔥 Auto-restart ONLY if the user didn't manually stop it
-            if (!manuallyStoppedRef.current) {
-                setTimeout(() => {
-                    console.log("Restarting speech recognition...");
-                    recognition.start();
-                }, 500); // Short delay before restarting
-            }
-        };
-
         recognitionRef.current = recognition;
     }, []);
 
     const startListening = () => {
         if (recognitionRef.current && !isListening) {
-            manuallyStoppedRef.current = false; // Reset manual stop flag
             recognitionRef.current.start();
             console.log("Started listening...");
         }
@@ -79,7 +55,6 @@ const JournalForm = ({ onEntryCreated }) => {
 
     const stopListening = () => {
         if (recognitionRef.current && isListening) {
-            manuallyStoppedRef.current = true; // Mark as manually stopped
             recognitionRef.current.stop();
             console.log("Stopped listening.");
         }
