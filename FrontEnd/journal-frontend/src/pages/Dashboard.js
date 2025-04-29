@@ -137,9 +137,10 @@ function Dashboard() {
                                             {entry.content}
                                         </p>
                                         <div className="mt-auto d-flex justify-content-between align-items-center">
-                                            <span className={`badge ${getEmotionBadgeClass(entry.emotion)} rounded-pill px-3 py-2`}>
-                                                {entry.emotion || "N/A"}
-                                            </span>
+                                        <span className={`badge ${getEmotionBadgeClass(entry.topEmotion?.label)} rounded-pill px-3 py-2`}>
+  {entry.topEmotion?.label || "N/A"}
+</span>
+
                                             <button
                                                 className="btn btn-outline-primary btn-sm rounded-pill px-3"
                                                 onClick={() => {
@@ -159,11 +160,15 @@ function Dashboard() {
 
                 {editingEntry && (
                     <EditJournalModal
-                        show={showEditModal}
-                        handleClose={() => setShowEditModal(false)}
-                        entry={editingEntry}
-                        onUpdateSuccess={handleUpdateSuccess}
-                    />
+                    show={showEditModal}
+                    handleClose={() => setShowEditModal(false)}
+                    entry={editingEntry}
+                    onUpdateSuccess={handleUpdateSuccess}
+                    onDeleteSuccess={(deletedId) => {
+                        setEntries((prevEntries) => prevEntries.filter((e) => e.id !== deletedId));
+                    }}
+                />
+                
                 )}
             </div>
         </div>

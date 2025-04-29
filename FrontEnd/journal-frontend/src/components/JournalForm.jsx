@@ -122,6 +122,9 @@ const JournalForm = ({ onEntryCreated }) => {
         } catch (error) {
             console.error("Error creating journal entry:", error);
         }
+        // Clear form fields
+    setTitle("");
+    setContent("");
     };
 
     return (

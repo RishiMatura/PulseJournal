@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.journaling.journalApp.entity.JournalEntry;
 import com.journaling.journalApp.entity.User;
 import com.journaling.journalApp.enums.Sentiment;
+import com.journaling.journalApp.models.EmotionAnalysisResponse;
 import com.journaling.journalApp.serviceImpl.AudioServiceImpl;
 import com.journaling.journalApp.services.*;
 import org.bson.types.ObjectId;
@@ -63,45 +64,50 @@ public class JournalEntryControllerV2 {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND) ;
     }
 
-//    2)    Create an Entry
-@PostMapping("/post")
-public ResponseEntity<?> createEntry(@RequestBody JournalEntry myEntry) {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    String userName = authentication.getName();
+    //    2)    Create an Entry
+    @PostMapping("/post")
+    public ResponseEntity<?> createEntry(@RequestBody JournalEntry myEntry) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userName = authentication.getName();
 
-    // Basic validation to avoid null or blank title/content
-    if (myEntry.getTitle() == null || myEntry.getTitle().trim().isEmpty() ||
-            myEntry.getContent() == null || myEntry.getContent().trim().isEmpty()) {
-        return new ResponseEntity<>("Title and Content cannot be empty.", HttpStatus.BAD_REQUEST);
+        // Basic validation to avoid null or blank title/content
+        if (myEntry.getTitle() == null || myEntry.getTitle().trim().isEmpty() ||
+                myEntry.getContent() == null || myEntry.getContent().trim().isEmpty()) {
+            return new ResponseEntity<>("Title and Content cannot be empty.", HttpStatus.BAD_REQUEST);
+        }
+
+        try {
+            // Sanitize the title and content
+            String sanitizedTitle = emotionService.sanitizeContent(myEntry.getTitle());
+            String sanitizedContent = emotionService.sanitizeContent(myEntry.getContent());
+
+            // Set owner
+            myEntry.setOwner(userName);
+
+            // Call to the emotion analysis service and get all emotions
+            // Updated to fetch the top emotion and all emotions
+            EmotionAnalysisResponse emotionResponse = emotionService.analyzeEmotion(sanitizedTitle + " " + sanitizedContent);
+
+            // Set the top emotion and all emotions
+            myEntry.setTopEmotion(emotionResponse.getTop_emotion());  // Assuming EmotionAnalysisResponse has getTopEmotion()
+            myEntry.setAllEmotions(emotionResponse.getAll_emotions());  // Assuming EmotionAnalysisResponse has getAllEmotions()
+            myEntry.setEmotion(emotionResponse.getTop_emotion().getLabel());  // Add top emotion label to `emotion`
+
+            // Sentiment analysis
+            Sentiment sentiment = sentimentAnalysisService.getSentiment(sanitizedTitle + " " + sanitizedContent);
+            myEntry.setSentiment(sentiment);
+
+            // Save entry
+            journalEntryService.saveEntry(myEntry, userName);
+
+            return new ResponseEntity<>(myEntry, HttpStatus.CREATED);
+        } catch (Exception e) {
+            e.printStackTrace(); // Log the exception for debugging
+            return new ResponseEntity<>("Something went wrong while creating entry.", HttpStatus.BAD_REQUEST);
+        }
     }
 
-    try {
-        // Set owner
-        myEntry.setOwner(userName);
 
-        // Emotion analysis
-        String detectedEmotion = emotionService.analyzeEmotion(myEntry.getTitle() + " " + myEntry.getContent());
-        myEntry.setEmotion(detectedEmotion);
-
-//        // Audio generation
-//        String fileName = audioService.generateFileName(myEntry);
-//        String audioUrl = audioService.convertTextToSpeech(myEntry.getTitle() + " " + myEntry.getContent(), fileName);
-////        myEntry.setAudioUrl(audioUrl);
-//        myEntry.setAudioUrl(audioUrl);
-
-        // Sentiment analysis
-        Sentiment sentiment = sentimentAnalysisService.getSentiment(myEntry.getTitle() + " " + myEntry.getContent());
-        myEntry.setSentiment(sentiment);
-
-        // Save entry
-        journalEntryService.saveEntry(myEntry, userName);
-
-        return new ResponseEntity<>(myEntry, HttpStatus.CREATED);
-    } catch (Exception e) {
-        e.printStackTrace(); // Log the exception for debugging
-        return new ResponseEntity<>("Something went wrong while creating entry.", HttpStatus.BAD_REQUEST);
-    }
-}
 
 
 //   3)     Get Entry By ID
@@ -153,14 +159,15 @@ public ResponseEntity<?> deleteEntryByID(@PathVariable ObjectId myID) {
 }
 
 
-    //  5)     Update Entry by ID
     @PutMapping("id/{myID}")
     public ResponseEntity<?> updateJournalByID(@PathVariable ObjectId myID, @RequestBody JournalEntry newEntry) {
+        System.out.println("Updating journal with ID: " + myID);  // Add this to confirm ID
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userName = authentication.getName();
         User user = userService.findByUserName(userName);
         List<JournalEntry> collect = user.getJournalEntries().stream().filter(x -> x.getId().equals(myID)).collect(Collectors.toList());
+        System.out.println("Found matching entries: " + collect.size());  // Add this to check if entries match
 
         if (!collect.isEmpty()) {
             Optional<JournalEntry> journalEntry = journalEntryService.findById(myID);
@@ -176,15 +183,34 @@ public ResponseEntity<?> deleteEntryByID(@PathVariable ObjectId myID) {
                     updated = true;
                 }
                 if (updated) {
-//                    audioService.replaceAudioFile(oldEntry, oldEntry.getTitle() + " " + oldEntry.getContent());
+                    // Log before analyzing emotion and sentiment
+                    System.out.println("Before re-analyzing: " + oldEntry.getTitle() + " " + oldEntry.getContent());
+
+                    // Sanitize the title and content before re-analyzing emotions and sentiment
+                    String sanitizedTitle = emotionService.sanitizeContent(oldEntry.getTitle());
+                    String sanitizedContent = emotionService.sanitizeContent(oldEntry.getContent());
+
+                    // Re-analyze emotions and sentiment with sanitized content
+                    EmotionAnalysisResponse emotionResponse = emotionService.analyzeEmotion(sanitizedTitle + " " + sanitizedContent);
+                    oldEntry.setTopEmotion(emotionResponse.getTop_emotion());
+                    oldEntry.setAllEmotions(emotionResponse.getAll_emotions());
+                    oldEntry.setEmotion(emotionResponse.getTop_emotion().getLabel());
+
+                    Sentiment sentiment = sentimentAnalysisService.getSentiment(sanitizedTitle + " " + sanitizedContent);
+                    oldEntry.setSentiment(sentiment);
+
+                    // Save the updated journal entry
                     journalEntryService.saveEntry(oldEntry);
+                    System.out.println("Successfully updated journal entry");
+
+                    return new ResponseEntity<>(oldEntry, HttpStatus.OK);
                 }
-                return new ResponseEntity<>(oldEntry, HttpStatus.OK);
             }
         }
 
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+
 
 
     @RestController
